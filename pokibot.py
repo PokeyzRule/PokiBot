@@ -1,17 +1,25 @@
 import discord
 from discord.ext import commands
 from discord.abc import Snowflake, GuildChannel
+import json
 
 prefix = "!"
 bot = commands.Bot(command_prefix = prefix)
 
+with open("token.txt") as file:
+    token = file.readline().strip("\n")
+
 # Initialize global variable for cached invites
 cached_invites = {}
+
+# Initialize global variable for role to assign for an invite
+invite_to_roles = {}
 
 async def cache_all_invites():
     '''
     Cache all server invites (on ready)
     '''
+
     global cached_invites
     cached_invites = {}
     for guild in bot.guilds:
@@ -29,6 +37,7 @@ async def cache_server_invites(guild: str):
     '''
     Cache the server's invite in which the command was called in
     '''
+
     cached_invites = []
     try:
         for channel in guild.channels:
@@ -51,6 +60,7 @@ async def on_member_join(member):
     '''
     Detect which invite was used when a new member joins
     '''
+
     try:
         updated_invites = await cache_server_invites(member.guild)
         # for invite in updated_invites:
@@ -65,6 +75,48 @@ async def on_member_join(member):
         for old in old_invites:
             if new.id == old.id and new.uses > old.uses:
                 print("{} joined using invite {} at {} uses".format(member, new.code, new.uses))
+                for value in invite_to_roles[member.guild.id]:
+                    if new.code == value[0]:
+                        await member.add_roles(value[1])
+                # TODO: add role from invite_to_roles
+
+@bot.command()
+async def inviterole(ctx, invite_code: str, *, role_name: str):
+    '''
+    TODO
+    '''
+
+    global invite_to_roles
+    
+    if ctx.guild.id not in invite_to_roles:
+        invite_to_roles[ctx.guild.id] = []
+
+    role_to_add = None
+    for role in ctx.guild.roles:
+        if role_name == role.name:
+            role_to_add = role
+            break
+    
+    if role_to_add is None:
+        message = "Role not found"
+        await ctx.send(message)
+        return
+
+    # Check if the invite link already points to a role
+    for value in invite_to_roles[ctx.guild.id]:
+        if invite_code == value[0]:
+            value[1] = role_to_add
+            message = "Successfully updated invite code {} to apply the role {} upon member join!".format(invite_code, role_name)
+            await ctx.send(message)
+            print(invite_to_roles)
+            return
+
+    # If invite link is not in the dictionary
+    invite_to_roles[ctx.guild.id].append([invite_code, role_to_add])
+    message = "Successfully added invite code {} to apply the role {} upon member join!".format(invite_code, role_name)
+    await ctx.send(message)
+    print(invite_to_roles)
+
 
 
 
@@ -103,7 +155,7 @@ async def ping(ctx):
 async def echo(ctx, *, content:str):
     await ctx.send(content)
 
-bot.run('NTc0NjkzMzU5OTM2MDc3ODM5.XM9H_Q.kFaOUpk-nMXmFuIcU4DFyjywoE0')
+bot.run(token)
 
 '''
 client = discord.Client()
@@ -126,5 +178,5 @@ async def on_message(message):
 async def on_member_join(member):
     print(member.name + " joined")
 
-client.run('NTc0NjkzMzU5OTM2MDc3ODM5.XM9H_Q.kFaOUpk-nMXmFuIcU4DFyjywoE0')
+client.run(token)
 '''
