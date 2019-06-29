@@ -19,29 +19,10 @@ invitefile = "invite_to_role.json"
 try:
     with open(invitefile, "r") as read_file:
         invite_to_roles = json.load(read_file)
-        print(invite_to_roles)
 except json.decoder.JSONDecodeError:
     pass
 
-async def cache_all_invites():
-    '''
-    Cache all server invites (on ready)
-    '''
-
-    global cached_invites
-    cached_invites = {}
-    for guild in bot.guilds:
-        if guild not in cached_invites:
-            cached_invites[guild.id] = []
-        try:
-            for channel in guild.channels:
-                if not isinstance(channel, discord.channel.CategoryChannel):
-                    invites = await GuildChannel.invites(channel)
-                    cached_invites[guild.id].extend(invites)
-        except discord.Forbidden as e:
-            print("Missing manage_guilds perm in {}: ".format(guild.name) + str(e))
-
-async def cache_server_invites(guild:str):
+async def cache_server_invites(guild:discord.Guild):
     '''
     Cache the server's invite in which the command was called in
     '''
@@ -53,7 +34,7 @@ async def cache_server_invites(guild:str):
                 invites = await GuildChannel.invites(channel)
                 cached_invites.extend(invites)
     except discord.Forbidden:
-        print("Missing manage_guilds perm in {}".format(guild))
+        print("Missing manage_guilds perm in {0.name}".format(guild))
         raise
     return cached_invites
 
@@ -61,7 +42,20 @@ async def cache_server_invites(guild:str):
 async def on_ready():
     print('We have logged in as {0.user}'.format(bot))
 
-    await cache_all_invites()
+    global cached_invites
+    cached_invites = {}
+    for guild in bot.guilds:
+        print("Caching invites for {}".format(guild.name))
+        cached_invites[guild.id] = await cache_server_invites(guild)
+
+@bot.event
+async def on_guild_join(guild):
+    global cached_invites
+
+    try:
+        cached_invites[guild.id] = await cache_server_invites(guild)
+    except discord.Forbidden:
+        return
 
 @bot.event
 async def on_member_join(member):
@@ -72,25 +66,20 @@ async def on_member_join(member):
     global cached_invites
     guild_id = str(member.guild.id)
 
+    old_invites = cached_invites[member.guild.id]
+
     try:
-        updated_invites = await cache_server_invites(member.guild)
-        # for invite in updated_invites:
-        #     print("updated" + str(invite.uses))
+        cached_invites[member.guild.id] = await cache_server_invites(member.guild)
     except discord.Forbidden:
         return
 
-    old_invites = cached_invites[member.guild.id]
-    # for invite in old_invites:
-    #     print("old" + str(invite.uses))
-
-    for new in updated_invites:
+    for new in cached_invites[member.guild.id]:
         for old in old_invites:
             if new.id == old.id and new.uses > old.uses:
-                print("{} joined {} using invite {} at {} uses".format(member, member.guild, new.code, new.uses))
+                print("{0} joined {0.guild} using invite {1.code} at {1.uses} uses".format(member, new))
                 if new.code in invite_to_roles[guild_id]:
                     try:
                         await member.add_roles(member.guild.get_role(invite_to_roles[guild_id][new.code]))
-                        cached_invites = updated_invites
                         return
                     except discord.Forbidden as e:
                         print("Error assigning role: " + str(e))
@@ -98,7 +87,10 @@ async def on_member_join(member):
 @bot.command()
 async def inviterole(ctx, mode:str="list", invite_code:str=None, *, role_name:str=None):
     '''
-    TODO
+    Designate a role to be added if a specified invite link is used
+    modes: add, remove, list[WIP]
+
+    Example: !inviterole add AbCdEfG role name
     '''
 
     global invite_to_roles
@@ -143,30 +135,9 @@ async def inviterole(ctx, mode:str="list", invite_code:str=None, *, role_name:st
             await ctx.send("Invite code not found in list.")
 
     elif mode == "list":
-        await ctx.send("To be implemented...")
+        await ctx.send("List feature to be implemented...")
 
     else:
         await ctx.send("Please provde a valid mode")
-
-@bot.command()
-async def potato(ctx):
-    '''
-    Manually update this server's invite cache
-    '''
-    global cached_invites
-    try:
-        invites = await cache_server_invites(ctx.guild)
-        cached_invites[ctx.guild.id] = invites
-    except discord.Forbidden:
-        await ctx.send("Please give me the manage_guilds permission!")
-
-
-@bot.command()
-async def ppotato(ctx):
-    '''
-    Print the cached invites to console
-    '''
-    print(cached_invites)
-
 
 bot.run(token)
