@@ -15,6 +15,10 @@ cached_invites = {}
 # Initialize global variable for role to assign for an invite
 invite_to_roles = {}
 
+with open("data_file.json") as read_file:
+    invite_to_roles = json.load(read_file)
+    print(invite_to_roles)
+
 async def cache_all_invites():
     '''
     Cache all server invites (on ready)
@@ -30,8 +34,8 @@ async def cache_all_invites():
                 if not isinstance(channel, discord.channel.CategoryChannel):
                     invites = await GuildChannel.invites(channel)
                     cached_invites[guild.id].extend(invites)
-        except discord.Forbidden:
-            print("Missing manage_guilds perm in {}".format(guild))
+        except discord.Forbidden as e:
+            print("Missing manage_guilds perm in {}: ".format(guild.name) + str(e))
 
 async def cache_server_invites(guild: str):
     '''
@@ -66,7 +70,8 @@ async def on_member_join(member):
         # for invite in updated_invites:
         #     print("updated" + str(invite.uses))
     except discord.Forbidden:
-        updated_invites = []
+        return
+
     old_invites = cached_invites[member.guild.id]
     # for invite in old_invites:
     #     print("old" + str(invite.uses))
@@ -74,11 +79,13 @@ async def on_member_join(member):
     for new in updated_invites:
         for old in old_invites:
             if new.id == old.id and new.uses > old.uses:
-                print("{} joined using invite {} at {} uses".format(member, new.code, new.uses))
-                for value in invite_to_roles[member.guild.id]:
-                    if new.code == value[0]:
-                        await member.add_roles(value[1])
-                # TODO: add role from invite_to_roles
+                print("{} joined {} using invite {} at {} uses".format(member, member.guild, new.code, new.uses))
+                if new.code in invite_to_roles[str(member.guild.id)]:
+                    try:
+                        await member.add_roles(member.guild.get_role(invite_to_roles[str(member.guild.id)][new.code]))
+                        return
+                    except discord.Forbidden as e:
+                        print("Error assigning role: " + str(e))
 
 @bot.command()
 async def inviterole(ctx, invite_code: str, *, role_name: str):
@@ -89,36 +96,22 @@ async def inviterole(ctx, invite_code: str, *, role_name: str):
     global invite_to_roles
     
     if ctx.guild.id not in invite_to_roles:
-        invite_to_roles[ctx.guild.id] = []
+        invite_to_roles[ctx.guild.id] = {}
 
-    role_to_add = None
-    for role in ctx.guild.roles:
-        if role_name == role.name:
-            role_to_add = role
-            break
+    role_to_add = discord.utils.get(ctx.guild.roles, name = role_name)
     
     if role_to_add is None:
         message = "Role not found"
         await ctx.send(message)
         return
 
-    # Check if the invite link already points to a role
-    for value in invite_to_roles[ctx.guild.id]:
-        if invite_code == value[0]:
-            value[1] = role_to_add
-            message = "Successfully updated invite code {} to apply the role {} upon member join!".format(invite_code, role_name)
-            await ctx.send(message)
-            print(invite_to_roles)
-            return
+    invite_to_roles[ctx.guild.id][invite_code] = role_to_add.id
 
-    # If invite link is not in the dictionary
-    invite_to_roles[ctx.guild.id].append([invite_code, role_to_add])
-    message = "Successfully added invite code {} to apply the role {} upon member join!".format(invite_code, role_name)
+    with open("data_file.json", "w") as write_file:
+        json.dump(invite_to_roles, write_file)
+
+    message = "Successfully updated invite code **{}** to apply the role **{}** upon member join!".format(invite_code, role_name)
     await ctx.send(message)
-    print(invite_to_roles)
-
-
-
 
 @bot.command()
 async def potato(ctx):
