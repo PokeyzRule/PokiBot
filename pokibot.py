@@ -4,7 +4,7 @@ from discord.abc import Snowflake, GuildChannel
 import json
 
 prefix = "!"
-bot = commands.Bot(command_prefix = prefix)
+bot = commands.Bot(command_prefix=prefix)
 
 with open("token.txt") as file:
     token = file.readline().strip("\n")
@@ -15,9 +15,13 @@ cached_invites = {}
 # Initialize global variable for role to assign for an invite
 invite_to_roles = {}
 
-with open("data_file.json") as read_file:
-    invite_to_roles = json.load(read_file)
-    print(invite_to_roles)
+invitefile = "invite_to_role.json"
+try:
+    with open(invitefile, "r") as read_file:
+        invite_to_roles = json.load(read_file)
+        print(invite_to_roles)
+except json.decoder.JSONDecodeError:
+    pass
 
 async def cache_all_invites():
     '''
@@ -37,7 +41,7 @@ async def cache_all_invites():
         except discord.Forbidden as e:
             print("Missing manage_guilds perm in {}: ".format(guild.name) + str(e))
 
-async def cache_server_invites(guild: str):
+async def cache_server_invites(guild:str):
     '''
     Cache the server's invite in which the command was called in
     '''
@@ -65,6 +69,9 @@ async def on_member_join(member):
     Detect which invite was used when a new member joins
     '''
 
+    global cached_invites
+    guild_id = str(member.guild.id)
+
     try:
         updated_invites = await cache_server_invites(member.guild)
         # for invite in updated_invites:
@@ -80,38 +87,66 @@ async def on_member_join(member):
         for old in old_invites:
             if new.id == old.id and new.uses > old.uses:
                 print("{} joined {} using invite {} at {} uses".format(member, member.guild, new.code, new.uses))
-                if new.code in invite_to_roles[str(member.guild.id)]:
+                if new.code in invite_to_roles[guild_id]:
                     try:
-                        await member.add_roles(member.guild.get_role(invite_to_roles[str(member.guild.id)][new.code]))
+                        await member.add_roles(member.guild.get_role(invite_to_roles[guild_id][new.code]))
+                        cached_invites = updated_invites
                         return
                     except discord.Forbidden as e:
                         print("Error assigning role: " + str(e))
 
 @bot.command()
-async def inviterole(ctx, invite_code: str, *, role_name: str):
+async def inviterole(ctx, mode:str="list", invite_code:str=None, *, role_name:str=None):
     '''
     TODO
     '''
 
     global invite_to_roles
+    guild_id = str(ctx.guild.id)
     
-    if ctx.guild.id not in invite_to_roles:
-        invite_to_roles[ctx.guild.id] = {}
+    if mode == "add":
+        if invite_code == None:
+            await ctx.send("Please include an invite code and role name!")
+            return
+        elif role_name == None:
+            await ctx.send("Please include the role name you wish to add!")
+            return
 
-    role_to_add = discord.utils.get(ctx.guild.roles, name = role_name)
-    
-    if role_to_add is None:
-        message = "Role not found"
+        if guild_id not in invite_to_roles:
+            invite_to_roles[guild_id] = {}
+
+        role_to_add = discord.utils.get(ctx.guild.roles, name = role_name)
+        
+        if role_to_add is None:
+            message = "Role not found"
+            await ctx.send(message)
+            return
+
+        invite_to_roles[guild_id][invite_code] = role_to_add.id
+
+        with open(invitefile, "w") as write_file:
+            json.dump(invite_to_roles, write_file)
+
+        message = "Successfully updated invite code **{}** to apply the role **{}**!".format(invite_code, role_name)
         await ctx.send(message)
-        return
 
-    invite_to_roles[ctx.guild.id][invite_code] = role_to_add.id
+    elif mode == "remove":
+        if invite_code == None:
+            await ctx.send("Please include an invite code!")
+            return
+        try:
+            invite_to_roles[guild_id].pop(invite_code)
 
-    with open("data_file.json", "w") as write_file:
-        json.dump(invite_to_roles, write_file)
+            with open(invitefile, "w") as write_file:
+                json.dump(invite_to_roles, write_file)
+        except KeyError:
+            await ctx.send("Invite code not found in list.")
 
-    message = "Successfully updated invite code **{}** to apply the role **{}** upon member join!".format(invite_code, role_name)
-    await ctx.send(message)
+    elif mode == "list":
+        await ctx.send("To be implemented...")
+
+    else:
+        await ctx.send("Please provde a valid mode")
 
 @bot.command()
 async def potato(ctx):
@@ -133,43 +168,5 @@ async def ppotato(ctx):
     '''
     print(cached_invites)
 
-@bot.command()
-async def ping(ctx):
-    '''
-    This text will be shown in the help command
-    '''
-
-    # Get the latency of the bot
-    latency = bot.latency  # Included in the Discord.py library
-    # Send it to the user
-    await ctx.send(latency)
-
-@bot.command()
-async def echo(ctx, *, content:str):
-    await ctx.send(content)
 
 bot.run(token)
-
-'''
-client = discord.Client()
-
-@client.event
-async def on_ready():
-    print('We have logged in as {0.user}'.format(client))
-
-@client.event
-async def on_message(message):
-    if message.author == client.user:
-        return
-
-    if message.content.startswith('!hello'):
-        await message.channel.send('Hello!')
-
-
-
-@client.event
-async def on_member_join(member):
-    print(member.name + " joined")
-
-client.run(token)
-'''
