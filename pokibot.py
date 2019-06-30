@@ -3,8 +3,8 @@ from discord.ext import commands
 from discord.abc import Snowflake, GuildChannel
 import json
 
-prefix = "!"
-bot = commands.Bot(command_prefix=prefix)
+default_prefix = "!"
+bot = commands.Bot(command_prefix=default_prefix)
 
 with open("token.txt") as file:
     token = file.readline().strip("\n")
@@ -22,6 +22,7 @@ try:
 except json.decoder.JSONDecodeError:
     pass
 
+
 async def cache_server_invites(guild:discord.Guild):
     '''
     Cache the server's invite in which the command was called in
@@ -38,6 +39,7 @@ async def cache_server_invites(guild:discord.Guild):
         raise
     return cached_invites
 
+
 @bot.event
 async def on_ready():
     print('We have logged in as {0.user}'.format(bot))
@@ -48,6 +50,7 @@ async def on_ready():
         print("Caching invites for {}".format(guild.name))
         cached_invites[guild.id] = await cache_server_invites(guild)
 
+
 @bot.event
 async def on_guild_join(guild):
     global cached_invites
@@ -56,6 +59,7 @@ async def on_guild_join(guild):
         cached_invites[guild.id] = await cache_server_invites(guild)
     except discord.Forbidden:
         return
+
 
 @bot.event
 async def on_guild_remove(guild):
@@ -67,6 +71,7 @@ async def on_guild_remove(guild):
 
     with open(invitefile, "w") as write_file:
         json.dump(invite_to_role, write_file)
+
 
 @bot.event
 async def on_member_join(member):
@@ -94,6 +99,7 @@ async def on_member_join(member):
                         return
                     except discord.Forbidden as e:
                         print("Error assigning role: " + str(e))
+
 
 @bot.command()
 async def inviterole(ctx, mode:str="list", invite_code:str=None, *, role_name:str=None):
@@ -150,5 +156,6 @@ async def inviterole(ctx, mode:str="list", invite_code:str=None, *, role_name:st
 
     else:
         await ctx.send("Please provde a valid mode")
+
 
 bot.run(token)
