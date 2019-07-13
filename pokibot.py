@@ -155,7 +155,7 @@ async def inviterole(ctx, mode:str="list", invite_code:str=None, *, role_name:st
         await ctx.send("List feature to be implemented...")
 
     else:
-        await ctx.send("Please provde a valid mode")
+        await ctx.send("Please provde a valid mode: [add, remove, list]")
 
 
 bot.run(token)
