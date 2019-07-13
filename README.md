@@ -4,8 +4,8 @@ Features:
 * Tracks which invite was used when a new user joins, and give them a role depending on which invite was used.
 
 WIP:
-* Implement the list feature for inviteroles.
 * Add role-specific moderation tools.
+* Change custom bot prefix
 
 Planned features:
 * Give user a role by reacting to a message.
