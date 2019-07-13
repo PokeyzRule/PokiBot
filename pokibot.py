@@ -99,13 +99,37 @@ async def on_member_join(member):
                         return
                     except discord.Forbidden as e:
                         print("Error assigning role: " + str(e))
+                        if e.code == 50013:
+                            try:
+                                msg = "Error assigning role: Please make sure PokiBot is higher than the role you wish to assign in the role hierarchy!"
+                                invite = await bot.fetch_invite(new.id)
+                                await invite.channel.send(msg)
+                            except discord.NotFound:
+                                invite_to_role[guild_id].pop(new.code)
+                                with open(invitefile, "w") as write_file:
+                                    json.dump(invite_to_role, write_file)
+                                    await invite.channel.send("Invite expired or deleted.")
+                            except discord.DiscordException:
+                                pass
+
+                        elif e.code == 50001:
+                            try:
+                                invite = await bot.fetch_invite(new.id)
+                                await invite.channel.send("Error assigning role: Please give me the Manage Roles permission!")
+                            except discord.NotFound:
+                                invite_to_role[guild_id].pop(new.code)
+                                with open(invitefile, "w") as write_file:
+                                    json.dump(invite_to_role, write_file)
+                                    await invite.channel.send("Invite expired or deleted.")
+                            except discord.DiscordException:
+                                pass
 
 
 @bot.command()
 async def inviterole(ctx, mode:str="list", invite_code:str=None, *, role_name:str=None):
     '''
     Designate a role to be added if a specified invite link is used
-    modes: add, remove, list[WIP]
+    modes: add, remove, list
 
     Example: !inviterole add AbCdEfG role name
     '''
