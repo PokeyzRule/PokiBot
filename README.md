@@ -5,6 +5,7 @@ Features:
 
 WIP:
 * Implement the list feature for inviteroles.
+* Add role-specific moderation tools.
 
 Planned features:
 * Give user a role by reacting to a message.
