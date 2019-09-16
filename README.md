@@ -9,3 +9,4 @@ WIP:
 
 Planned features:
 * Give user a role by reacting to a message.
+* Take an external emote and add it to the server.
