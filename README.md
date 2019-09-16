@@ -5,8 +5,8 @@ Features:
 
 WIP:
 * Add role-specific moderation tools.
-* Change custom bot prefix
+* Ability to change bot prefix.
 
 Planned features:
-* Give user a role by reacting to a message.
+* Update user roles by un/reacting to a message.
 * Take an external emote and add it to the server.
